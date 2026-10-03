@@ -1,7 +1,9 @@
-# Engine smoke test: runs the example JSFX without any plugin host.
-set(_plugin "${CMAKE_SOURCE_DIR}/plugins/JsfxSynth")
+# Engine tests: run a JSFX without any plugin host.
+# They use their own copy of the example synth (tests/fixtures/TestSynth), so
+# the folders in plugins/ can be renamed, replaced or deleted freely.
+set(_plugin "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/TestSynth")
 set(_gen "${CMAKE_CURRENT_BINARY_DIR}/gen")
-jsfx_generate_sources("${_plugin}" "JsfxSynth.jsfx" "${_gen}" _smoke)
+jsfx_generate_sources("${_plugin}" "TestSynth.jsfx" "${_gen}" _smoke)
 
 add_executable(engine_smoke engine_smoke.cpp)
 jsfx_use_generated(engine_smoke _smoke "${_gen}")

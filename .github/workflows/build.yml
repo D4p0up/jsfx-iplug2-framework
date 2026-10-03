@@ -94,7 +94,7 @@ jobs:
         run: |
           # Prints why macOS cannot open a component (auval only says "-1").
           diagnose() { # <bundle> <factory symbol>
-            local bundle="$1" bin="$1/Contents/MacOS/$(basename "$1" .component)"
+            local bundle="$1" name="$(basename "$1" .component)" bin="$1/Contents/MacOS/$(basename "$1" .component)"
             echo "::group::Diagnostics for $bundle"
             echo "--- architectures";      lipo -archs "$bin" || true
             echo "--- signature";          codesign -dv "$bundle" 2>&1 || true
@@ -106,7 +106,7 @@ jobs:
               || python3 -c "import ctypes,sys; lib=ctypes.CDLL(sys.argv[1]); getattr(lib, sys.argv[2]); print('dlopen OK, factory found')" "$bin" "$2" 2>&1 || true
             echo "--- system log (last 3 min)"
             log show --last 3m --style compact \
-              --predicate 'process == "auvaltool" OR process == "AudioComponentRegistrar" OR senderImagePath CONTAINS "AudioToolbox" OR eventMessage CONTAINS "JsfxSynth" OR eventMessage CONTAINS[c] "code signature"' \
+              --predicate 'process == "auvaltool" OR process == "AudioComponentRegistrar" OR senderImagePath CONTAINS "AudioToolbox" OR eventMessage CONTAINS "'"$name"'" OR eventMessage CONTAINS[c] "code signature"' \
               2>/dev/null | tail -60 || true
             echo "::endgroup::"
           }

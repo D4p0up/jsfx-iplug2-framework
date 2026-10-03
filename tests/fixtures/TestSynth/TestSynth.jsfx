@@ -1,0 +1,372 @@
+desc:JSFX Synth (jsfx-iplug2-framework example)
+//tags: instrument synthesizer
+//author: Vincent
+
+// A small 8-voice polyphonic synth used to exercise the framework:
+// MIDI in, sample-accurate notes, sliders -> host parameters, @serialize,
+// and a custom @gfx UI (knobs, popup menu, clickable keyboard, Retina).
+
+in_pin:none
+out_pin:Left
+out_pin:Right
+
+slider1:wave=0<0,3,1{Saw,Square,Triangle,Sine}>Waveform
+slider2:cutoff=2400<40,18000,1:log=1000>Cutoff (Hz)
+slider3:reso=0.25<0,0.95,0.01>Resonance
+slider4:attack=4<0.5,2000,0.1:log=100>Attack (ms)
+slider5:decay=350<1,4000,1:log=300>Decay (ms)
+slider6:sustain=-9<-60,0,0.1>Sustain (dB)
+slider7:release=450<1,6000,1:log=400>Release (ms)
+slider8:volume=-8<-48,6,0.1>Volume (dB)
+
+options:gfx_hz=60
+
+@init
+NV = 8;                         // voices
+V_NOTE = 0; V_VEL = 8; V_PH = 16; V_INC = 24; V_STAGE = 32;
+V_ENV = 40; V_AGE = 48; V_S1 = 56; V_S2 = 64;
+EVQ = 1024; EVMAX = 256;        // MIDI events of the current block
+KMIN = 2100; KMAX = 2110; KLOG = 2120; KDEF = 2130;   // knob ranges (for @gfx)
+memset(0, 0, 80);
+age_counter = 0;
+ui_on = ui_off = 0;             // notes played with the mouse (note + 1)
+played_notes = 0;               // persisted with @serialize (demo)
+drag_k = held_key = menu_k = -1;
+gfx_ext_retina = 1;             // we draw at full pixel density
+
+KMIN[0] = 0;   KMAX[0] = 3;     KLOG[0] = 0; KDEF[0] = 0;
+KMIN[1] = 40;  KMAX[1] = 18000; KLOG[1] = 1; KDEF[1] = 2400;
+KMIN[2] = 0;   KMAX[2] = 0.95;  KLOG[2] = 0; KDEF[2] = 0.25;
+KMIN[3] = 0.5; KMAX[3] = 2000;  KLOG[3] = 1; KDEF[3] = 4;
+KMIN[4] = 1;   KMAX[4] = 4000;  KLOG[4] = 1; KDEF[4] = 350;
+KMIN[5] = -60; KMAX[5] = 0;     KLOG[5] = 0; KDEF[5] = -9;
+KMIN[6] = 1;   KMAX[6] = 6000;  KLOG[6] = 1; KDEF[6] = 450;
+KMIN[7] = -48; KMAX[7] = 6;     KLOG[7] = 0; KDEF[7] = -8;
+
+function update_params()
+(
+  att_inc = 1 / max(1, attack * 0.001 * srate);
+  dec_coef = exp(-4.6 / max(1, decay * 0.001 * srate));     // ~ -40 dB over "decay"
+  rel_coef = exp(-4.6 / max(1, release * 0.001 * srate));
+  sus_lvl = 10 ^ (sustain / 20);
+  gain = 10 ^ (volume / 20) * 0.25;
+  fc = min(cutoff, srate * 0.45);
+  g = tan($pi * fc / srate);
+  k = 2 - 2 * reso;
+  a1 = 1 / (1 + g * (g + k));
+  a2 = g * a1;
+  a3 = g * a2;
+);
+
+function polyblep(t, dt)
+(
+  t < dt ? (
+    t /= dt;
+    t + t - t * t - 1;
+  ) : t > 1 - dt ? (
+    t = (t - 1) / dt;
+    t * t + t + t + 1;
+  ) : 0;
+);
+
+function find_voice() local(i, best, best_age)
+(
+  best = -1;
+  i = 0;
+  while (best < 0 && i < NV) (
+    V_STAGE[i] == 0 ? (best = i);
+    i += 1;
+  );
+  best < 0 ? (                  // all busy: steal the oldest
+    best = 0;
+    best_age = V_AGE[0];
+    i = 1;
+    loop(NV - 1,
+      V_AGE[i] < best_age ? (best = i; best_age = V_AGE[i]);
+      i += 1;
+    );
+  );
+  best;
+);
+
+function note_on(note, vel) local(v)
+(
+  v = find_voice();
+  V_NOTE[v] = note;
+  V_VEL[v] = vel / 127;
+  V_INC[v] = 440 * 2 ^ ((note - 69) / 12) / srate;
+  V_STAGE[v] = 1;               // attack starts from the current level: no click
+  V_AGE[v] = age_counter;
+  age_counter += 1;
+  played_notes += 1;
+);
+
+function note_off(note) local(i)
+(
+  i = 0;
+  loop(NV,
+    (V_NOTE[i] == note && V_STAGE[i] > 0 && V_STAGE[i] < 4) ? (V_STAGE[i] = 4);
+    i += 1;
+  );
+);
+
+function all_off() local(i)
+(
+  i = 0;
+  loop(NV, V_STAGE[i] > 0 ? (V_STAGE[i] = 4); i += 1;);
+);
+
+function handle_midi(m1, m2, m3) local(st)
+(
+  st = m1 & 0xF0;
+  st == 0x90 && m3 > 0 ? note_on(m2, m3)
+  : (st == 0x80 || st == 0x90) ? note_off(m2)
+  : (st == 0xB0 && (m2 == 123 || m2 == 120)) ? all_off();
+);
+
+update_params();
+
+@slider
+update_params();
+
+@serialize
+file_var(0, played_notes);
+
+@block
+ev_n = 0;
+while (midirecv(ofs, m1, m2, m3)) (
+  ev_n < EVMAX ? (
+    EVQ[ev_n * 4] = ofs;
+    EVQ[ev_n * 4 + 1] = m1;
+    EVQ[ev_n * 4 + 2] = m2;
+    EVQ[ev_n * 4 + 3] = m3;
+    ev_n += 1;
+  );
+);
+ui_on > 0 ? (note_on(ui_on - 1, 100); ui_on = 0);
+ui_off > 0 ? (note_off(ui_off - 1); ui_off = 0);
+ev_i = 0;
+spl_i = 0;
+
+@sample
+while (ev_i < ev_n && EVQ[ev_i * 4] <= spl_i) (     // sample accurate MIDI
+  handle_midi(EVQ[ev_i * 4 + 1], EVQ[ev_i * 4 + 2], EVQ[ev_i * 4 + 3]);
+  ev_i += 1;
+);
+spl_i += 1;
+
+out = 0;
+i = 0;
+loop(NV,
+  V_STAGE[i] > 0 ? (
+    st = V_STAGE[i];
+    e = V_ENV[i];
+    st == 1 ? (
+      e += att_inc;
+      e >= 1 ? (e = 1; V_STAGE[i] = 2);
+    ) : st == 2 ? (
+      e = sus_lvl + (e - sus_lvl) * dec_coef;
+      abs(e - sus_lvl) < 0.0001 ? (e = sus_lvl; V_STAGE[i] = 3);
+    ) : st == 3 ? (
+      e = sus_lvl;
+    ) : (
+      e *= rel_coef;
+      e < 0.0001 ? (e = 0; V_STAGE[i] = 0; V_S1[i] = 0; V_S2[i] = 0);
+    );
+    V_ENV[i] = e;
+
+    p = V_PH[i];
+    dt = V_INC[i];
+    wave == 0 ? (
+      x = 2 * p - 1 - polyblep(p, dt);
+    ) : wave == 1 ? (
+      q = p + 0.5; q >= 1 ? (q -= 1);
+      x = (p < 0.5 ? 1 : -1) + polyblep(p, dt) - polyblep(q, dt);
+    ) : wave == 2 ? (
+      x = 4 * abs(p - 0.5) - 1;
+    ) : (
+      x = sin(2 * $pi * p);
+    );
+    p += dt;
+    p >= 1 ? (p -= 1);
+    V_PH[i] = p;
+
+    // zero-delay-feedback state variable low-pass (Zavalishin)
+    v3 = x - V_S2[i];
+    v1 = a1 * V_S1[i] + a2 * v3;
+    v2 = V_S2[i] + a2 * V_S1[i] + a3 * v3;
+    V_S1[i] = 2 * v1 - V_S1[i];
+    V_S2[i] = 2 * v2 - V_S2[i];
+    out += v2 * e * V_VEL[i];
+  );
+  i += 1;
+);
+spl0 = spl1 = out * gain;
+
+@gfx 720 380
+sc = gfx_ext_retina > 1 ? gfx_ext_retina : 1;
+
+function knob_norm(k) local(v)
+(
+  v = slider(k + 1);
+  KLOG[k] ? log(v / KMIN[k]) / log(KMAX[k] / KMIN[k]) : (v - KMIN[k]) / (KMAX[k] - KMIN[k]);
+);
+
+function knob_set(k, n) local(v)
+(
+  n = max(0, min(1, n));
+  v = KLOG[k] ? KMIN[k] * (KMAX[k] / KMIN[k]) ^ n : KMIN[k] + n * (KMAX[k] - KMIN[k]);
+  k == 0 ? (v = floor(v + 0.5));
+  slider(k + 1) = v;
+  slider_automate(2 ^ k, 0);          // tell the host (bit 0 = slider1); still touching
+);
+
+function knob_x(k) ( (45 + k * 90) * sc; );
+function knob_y()  ( 150 * sc; );
+
+function hit_knob(x, y) local(k, r)
+(
+  r = -1;
+  k = 0;
+  loop(8,
+    sqr(x - knob_x(k)) + sqr(y - knob_y()) < sqr(36 * sc) ? (r = k);
+    k += 1;
+  );
+  r;
+);
+
+// two octaves, C3..B4 (MIDI 48..71), white keys only are clickable areas
+function key_hit(x, y) local(top, w, idx, oct, wi)
+(
+  top = gfx_h - 100 * sc;
+  w = (gfx_w - 40 * sc) / 14;
+  y >= top && y < gfx_h - 20 * sc && x >= 20 * sc && x < gfx_w - 20 * sc ? (
+    idx = floor((x - 20 * sc) / w);
+    oct = floor(idx / 7);
+    wi = idx - oct * 7;
+    48 + oct * 12 + (wi == 0 ? 0 : wi == 1 ? 2 : wi == 2 ? 4 : wi == 3 ? 5 : wi == 4 ? 7 : wi == 5 ? 9 : 11);
+  ) : -1;
+);
+
+function note_active(note) local(i, a)
+(
+  a = 0;
+  i = 0;
+  loop(NV, (V_STAGE[i] > 0 && V_STAGE[i] < 4 && V_NOTE[i] == note) ? (a = 1); i += 1;);
+  a;
+);
+
+// ---------------------------------------------------------------- input
+(mouse_cap & 1) ? (
+  !(last_cap & 1) ? (
+    drag_k = hit_knob(mouse_x, mouse_y);
+    drag_k >= 0 ? (drag_y = mouse_y; drag_n = knob_norm(drag_k));
+    held_key = key_hit(mouse_x, mouse_y);
+    held_key >= 0 ? (ui_on = held_key + 1);
+  ) : (
+    drag_k >= 0 ? (
+      knob_set(drag_k, drag_n + (drag_y - mouse_y) / (220 * sc) * ((mouse_cap & 4) ? 0.1 : 1));
+    );
+  );
+) : (
+  (last_cap & 1) ? (
+    drag_k >= 0 ? slider_automate(2 ^ drag_k, 1);    // end of the gesture
+    drag_k = -1;
+    held_key >= 0 ? (ui_off = held_key + 1; held_key = -1);
+  );
+);
+
+((mouse_cap & 2) && !(last_cap & 2)) ? (
+  menu_k = hit_knob(mouse_x, mouse_y);
+  menu_k >= 0 ? (
+    gfx_x = mouse_x; gfx_y = mouse_y;
+    choice = gfx_showmenu("Reset to default|#Fine adjust: Ctrl/Cmd + drag");
+    choice == 1 ? (
+      slider(menu_k + 1) = KDEF[menu_k];
+      slider_automate(2 ^ menu_k);
+    );
+  );
+);
+last_cap = mouse_cap;
+
+// ---------------------------------------------------------------- drawing
+// NOTE: @gfx runs on its own thread, concurrently with @sample (as in REAPER).
+// Top-level @gfx variables are prefixed g_ so they never share a name with a
+// variable used by @init/@block/@sample (e.g. the loop index "i" or the
+// filter coefficient "k"): sharing one would corrupt the audio.
+gfx_set(0.11, 0.11, 0.14, 1);
+gfx_rect(0, 0, gfx_w, gfx_h);
+
+gfx_setfont(1, "Arial", 22 * sc, 'b');
+gfx_set(0.95, 0.75, 0.3, 1);
+gfx_x = 20 * sc; gfx_y = 18 * sc;
+gfx_drawstr("JSFX Synth");
+gfx_setfont(2, "Arial", 13 * sc);
+gfx_set(0.6, 0.6, 0.65, 1);
+gfx_x = 20 * sc; gfx_y = 48 * sc;
+gfx_printf("jsfx-iplug2-framework  -  %d notes played  -  right-click a knob for its menu", played_notes);
+
+g_k = 0;
+loop(8,
+  g_cx = knob_x(g_k);
+  g_cy = knob_y();
+  g_r = 30 * sc;
+  g_n = max(0, min(1, knob_norm(g_k)));
+  gfx_set(0.2, 0.2, 0.25, 1);
+  gfx_circle(g_cx, g_cy, g_r, 1, 1);
+  // value arc, drawn as several concentric arcs for thickness
+  g_t = 0;
+  loop(4 * sc,
+    gfx_set(0.34, 0.34, 0.4, 1);
+    gfx_arc(g_cx, g_cy, g_r - 3 * sc + g_t, -0.75 * $pi, 0.75 * $pi, 1);
+    gfx_set(0.95, 0.75, 0.3, 1);
+    gfx_arc(g_cx, g_cy, g_r - 3 * sc + g_t, -0.75 * $pi, -0.75 * $pi + g_n * 1.5 * $pi, 1);
+    g_t += 1;
+  );
+  g_a = -0.75 * $pi + g_n * 1.5 * $pi;
+  gfx_set(0.95, 0.95, 0.95, 1);
+  gfx_line(g_cx, g_cy, g_cx + sin(g_a) * (g_r - 8 * sc), g_cy - cos(g_a) * (g_r - 8 * sc), 1);
+
+  gfx_setfont(2);
+  gfx_set(0.8, 0.8, 0.85, 1);
+  #g_lbl = g_k == 0 ? "Wave" : g_k == 1 ? "Cutoff" : g_k == 2 ? "Reso" : g_k == 3 ? "Attack" : g_k == 4 ? "Decay" : g_k == 5 ? "Sustain" : g_k == 6 ? "Release" : "Volume";
+  gfx_measurestr(#g_lbl, g_tw, g_th);
+  gfx_x = g_cx - g_tw / 2; gfx_y = g_cy + g_r + 8 * sc;
+  gfx_drawstr(#g_lbl);
+
+  g_k == 0 ? (
+    #g_val = wave == 0 ? "Saw" : wave == 1 ? "Square" : wave == 2 ? "Triangle" : "Sine";
+  ) : (
+    sprintf(#g_val, KLOG[g_k] ? "%.0f" : "%.2f", slider(g_k + 1));
+  );
+  gfx_set(0.95, 0.75, 0.3, 1);
+  gfx_measurestr(#g_val, g_tw, g_th);
+  gfx_x = g_cx - g_tw / 2; gfx_y = g_cy + g_r + 24 * sc;
+  gfx_drawstr(#g_val);
+  g_k += 1;
+);
+
+// keyboard
+g_top = gfx_h - 100 * sc;
+g_bottom = gfx_h - 20 * sc;
+g_w = (gfx_w - 40 * sc) / 14;
+g_i = 0;
+loop(14,
+  g_oct = floor(g_i / 7);
+  g_wi = g_i - g_oct * 7;
+  g_note = 48 + g_oct * 12 + (g_wi == 0 ? 0 : g_wi == 1 ? 2 : g_wi == 2 ? 4 : g_wi == 3 ? 5 : g_wi == 4 ? 7 : g_wi == 5 ? 9 : 11);
+  note_active(g_note) ? gfx_set(0.95, 0.75, 0.3, 1) : gfx_set(0.92, 0.92, 0.9, 1);
+  gfx_rect(20 * sc + g_i * g_w + 1, g_top, g_w - 2, g_bottom - g_top);
+  g_i += 1;
+);
+g_i = 0;
+loop(14,
+  g_oct = floor(g_i / 7);
+  g_wi = g_i - g_oct * 7;
+  (g_wi != 2 && g_wi != 6) ? (
+    g_note = 48 + g_oct * 12 + (g_wi == 0 ? 1 : g_wi == 1 ? 3 : g_wi == 3 ? 6 : g_wi == 4 ? 8 : 10);
+    note_active(g_note) ? gfx_set(0.95, 0.6, 0.2, 1) : gfx_set(0.08, 0.08, 0.1, 1);
+    gfx_rect(20 * sc + (g_i + 1) * g_w - g_w * 0.3, g_top, g_w * 0.6, (g_bottom - g_top) * 0.6);
+  );
+  g_i += 1;
+);

@@ -68,7 +68,9 @@ parallèle, avec détection d'interblocage).
 | `resizable` | `false` par défaut : fenêtre de taille fixe, l'hôte ne peut pas la redimensionner et il n'y a pas de poignée. `true` réactive le redimensionnement |
 
 3. Recompiler. Chaque dossier de `plugins/` contenant un `plugin.json` devient
-   un plugin : la CI les construit tous.
+   un plugin : la CI les construit tous. L'exemple `plugins/JsfxSynth` peut
+   être renommé ou supprimé : les tests du moteur utilisent leur propre copie
+   (`tests/fixtures/TestSynth`).
 
 > **Piège classique en JSFX :** `@gfx` s'exécute sur un autre thread, en
 > même temps que `@sample` (c'est aussi le cas dans REAPER). Une variable
