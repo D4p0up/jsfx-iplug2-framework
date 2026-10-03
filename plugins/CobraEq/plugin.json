@@ -1,0 +1,16 @@
+{
+  "name": "Cobra EQ",
+  "jsfx": "CobraEq.jsfx",
+  "type": "EQ",
+  "version": "0.96.0",
+  "manufacturer": "Belles Ondes",
+  "manufacturer_code": "STBO",
+  "plugin_code": "COEQ",
+  "bundle_domain": "com",
+  "midi_in": true,
+  "midi_out": false,
+  "vst3_subcategory": "Effect",
+  "url": "https://www.bellesondes.fr",
+  "email": "vince@bellesondes.fr",
+  "copyright": "STBO Apache Licensing"
+}
