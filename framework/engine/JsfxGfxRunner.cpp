@@ -138,7 +138,7 @@ void GfxRunner::RunFrame()
     in = std::move(mReqInput);
   }
 
-  std::lock_guard<std::mutex> gfxLock(mEngine.GfxMutex());
+  std::unique_lock<std::mutex> gfxLock = mEngine.LockGfxForFrame();
   ysfx_t* fx = mEngine.GfxFx();
   if (!fx || !ysfx_is_compiled(fx) || !ysfx_has_section(fx, ysfx_section_gfx))
     return;

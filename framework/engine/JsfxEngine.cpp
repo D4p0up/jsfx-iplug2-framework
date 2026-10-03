@@ -75,6 +75,9 @@ struct Engine::ExclusiveLock
 {
   explicit ExclusiveLock(Engine& e) : engine(e)
   {
+    // Announce ourselves: the gfx thread won't start another frame until we
+    // own the gfx lock (see LockGfxForFrame).
+    e.mExclusiveWaiters.fetch_add(1);
     gfx = std::unique_lock<std::mutex>(e.mGfxMutex, std::defer_lock);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(150);
     while (!gfx.try_lock())
@@ -90,6 +93,7 @@ struct Engine::ExclusiveLock
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    e.mExclusiveWaiters.fetch_sub(1);
     fx = std::unique_lock<std::mutex>(e.mFxMutex);
   }
   Engine& engine;
@@ -130,6 +134,13 @@ Engine::~Engine()
   std::lock_guard<std::mutex> f(mFxMutex);
   if (mFx) ysfx_free(mFx);
   mFx = nullptr;
+}
+
+std::unique_lock<std::mutex> Engine::LockGfxForFrame()
+{
+  while (mExclusiveWaiters.load() > 0)
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  return std::unique_lock<std::mutex>(mGfxMutex);
 }
 
 void Engine::SetGfxInterruptor(std::function<void()> f)

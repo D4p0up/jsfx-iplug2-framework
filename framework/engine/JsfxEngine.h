@@ -121,6 +121,11 @@ public:
   // ------------------------------------------------------------ gfx thread
   /** Must be held while calling any ysfx_gfx_* function on GfxFx(). */
   std::mutex& GfxMutex() { return mGfxMutex; }
+  /** Takes the gfx lock for one @gfx frame, but first steps aside while a
+   *  main-thread operation (state save/load, reload, prepare) is waiting for
+   *  it. Mutexes are not fair (macOS's default pthread mutex can let the gfx
+   *  thread re-take the lock forever): this bounds that wait to one frame. */
+  std::unique_lock<std::mutex> LockGfxForFrame();
   ysfx_t* GfxFx() { return mFx; }
   /** Registered by the gfx runner: wakes a @gfx blocked in a synchronous popup
    *  menu so the main thread can take the gfx lock without dead-locking. */
@@ -157,6 +162,7 @@ private:
   std::string mLoadLog;               // collected while compiling
   LogFunc mLogFunc;
 
+  std::atomic<int> mExclusiveWaiters{0};   // main-thread ops waiting for the gfx lock
   std::mutex mInterruptMutex;
   std::function<void()> mGfxInterruptor;
 
