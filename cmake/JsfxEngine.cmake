@@ -348,7 +348,13 @@ endfunction()
 function(jsfx_link_runtime target prefix)
   _jsfx_link_swell(${target} ${prefix})
   if(JSFX_EEL2_ASM_OBJECT)
-    target_link_libraries(${target} PRIVATE "${JSFX_EEL2_ASM_OBJECT}")
+    # Passed as a raw linker argument, NOT via target_link_libraries(): the
+    # Xcode generator puts a full-path .o link item both in OTHER_LDFLAGS and
+    # in the "Link Binary With Libraries" phase, so ld sees it twice
+    # (75 "duplicate symbol" errors). A link option is emitted exactly once
+    # by every generator (Xcode, Visual Studio, Ninja, Makefiles).
+    target_link_options(${target} PRIVATE "${JSFX_EEL2_ASM_OBJECT}")
+    set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS "${JSFX_EEL2_ASM_OBJECT}")
     if(TARGET jsfx_eel2_asm)
       add_dependencies(${target} jsfx_eel2_asm)
     endif()
