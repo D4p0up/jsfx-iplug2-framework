@@ -178,6 +178,8 @@ function(jsfx_add_plugin plugin_dir)
   _jsfx_c_escape(JSFX_COPYRIGHT "${_copy}")
   _jsfx_xml_escape(JSFX_COPYRIGHT_XML "${_copy}")
   _jsfx_xml_escape(JSFX_MFR_XML "${_mfr}")
+  _jsfx_json_get(_resizable "${_json}" resizable OFF)
+  _jsfx_bool(JSFX_RESIZABLE ${_resizable})
   _jsfx_json_get(JSFX_UI_WIDTH "${_json}" ui_width 0)
   _jsfx_json_get(JSFX_UI_HEIGHT "${_json}" ui_height 0)
 

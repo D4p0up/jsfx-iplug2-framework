@@ -43,7 +43,14 @@ public:
 #if IPLUG_EDITOR
   /** Builds the UI on open, re-positions it on resize (overrides IGEditorDelegate). */
   void LayoutUI(IGraphics* pGraphics) override;
-  bool OnHostRequestingSupportedViewConfiguration(int width, int height) override { return ConstrainEditorResize(width, height); }
+  bool OnHostRequestingSupportedViewConfiguration(int width, int height) override
+  {
+#if JSFX_RESIZABLE
+    return ConstrainEditorResize(width, height);
+#else
+    return width == PLUG_WIDTH && height == PLUG_HEIGHT;   // fixed-size editor
+#endif
+  }
   void OnHostSelectedViewConfiguration(int width, int height) override;
 #endif
 

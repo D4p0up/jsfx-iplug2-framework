@@ -65,6 +65,7 @@ parallèle, avec détection d'interblocage).
 | `midi_in` / `midi_out` | défauts : MIDI in pour instruments et effets MIDI |
 | `vst3_subcategory` | défaut `Instrument\|Synth` ou `Fx` |
 | `ui_width` / `ui_height` | optionnel : sinon taille de `@gfx w h`, ou grille de potards |
+| `resizable` | `false` par défaut : fenêtre de taille fixe, l'hôte ne peut pas la redimensionner et il n'y a pas de poignée. `true` réactive le redimensionnement |
 
 3. Recompiler. Chaque dossier de `plugins/` contenant un `plugin.json` devient
    un plugin : la CI les construit tous.

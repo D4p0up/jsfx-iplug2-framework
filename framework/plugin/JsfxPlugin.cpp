@@ -317,8 +317,12 @@ int JsfxPlugin::UnserializeState(const IByteChunk& chunk, int startPos)
 #if IPLUG_EDITOR
 void JsfxPlugin::OnHostSelectedViewConfiguration(int width, int height)
 {
+#if JSFX_RESIZABLE
   if (GetUI())
     GetUI()->Resize(width, height, 1.f, true);
+#else
+  (void)width; (void)height;               // fixed-size editor: ignore
+#endif
 }
 
 void JsfxPlugin::LayoutUI(IGraphics* pGraphics)
@@ -341,8 +345,10 @@ void JsfxPlugin::LayoutUI(IGraphics* pGraphics)
     return;
   }
 
+#if JSFX_RESIZABLE
   pGraphics->SetLayoutOnResize(true);
   pGraphics->AttachCornerResizer(EUIResizerMode::Size, true);
+#endif
   pGraphics->EnableMouseOver(true);
   pGraphics->LoadFont("Roboto-Regular", const_cast<unsigned char*>(jsfx_generated::kFont.files[0].data),
                       static_cast<int>(jsfx_generated::kFont.files[0].size));
