@@ -1,4 +1,5 @@
 #include "JsfxEngine.h"
+#include "JsfxYsfxBridge.h"
 
 #include <algorithm>
 #include <chrono>
@@ -516,17 +517,14 @@ bool Engine::ProcessT(const T* const* ins, T* const* outs, uint32_t nIns, uint32
     return false;
   }
 
-  // Sliders moved by @gfx since the previous block: run @slider, as REAPER
-  // does. ysfx has no direct API for that; a NaN round trip on one slider
-  // raises its "must run @slider" flag and leaves the value untouched.
+  // Sliders moved by @gfx since the previous block: run @slider, as the
+  // JSFX expects after sliderchange(). Only a flag is raised: no slider value
+  // is written here, so nothing can collide with @gfx writing the same slider.
   for (const auto& p : mParams)
   {
     if (p.slider < ysfx_max_sliders && ysfx_slider_get_value(mFx, p.slider) != mLastSeen[p.slider])
     {
-      const uint32_t s = mParams.front().slider;
-      const double v = ysfx_slider_get_value(mFx, s);
-      ysfx_slider_set_value(mFx, s, std::numeric_limits<double>::quiet_NaN(), true);
-      ysfx_slider_set_value(mFx, s, v, true);
+      YsfxRequestSliderSection(mFx);
       break;
     }
   }

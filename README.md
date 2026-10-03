@@ -80,6 +80,14 @@ parallèle, avec détection d'interblocage).
 > variables de `@gfx` (`g_i`, `g_k`...) ou utilisez des fonctions avec
 > `local()`. Le test de stress du dépôt a justement attrapé ce bug dans le
 > synthé d'exemple.
+>
+> Ne calculez jamais l'état DSP (coefficients de filtres, `*_update()`...)
+> depuis `@gfx` : les paramètres et variables internes des fonctions EEL2
+> sont partagés entre threads, même avec `local()`. Dans `@gfx`, modifiez
+> seulement le slider puis appelez `sliderchange()`. Le framework lance alors
+> `@slider` sur le thread audio. Pour rester compatible avec REAPER, qui ne
+> le fait pas, détectez aussi le changement dans `@block`
+> (`cut != last_cut ? (update(); last_cut = cut);`).
 
 Tout le reste vient du JSFX lui-même, lu **à la compilation** par ysfx :
 

@@ -243,6 +243,8 @@ set(_jsfx_ysfx_sources
   "${_ys}/ysfx_api_gfx.cpp"
   "${_ys}/ysfx_eel_utils.cpp"
   "${_ys}/ysfx_preprocess.cpp"
+  # framework helper that needs ysfx internals (ysfx.hpp)
+  "${CMAKE_CURRENT_LIST_DIR}/../framework/engine/JsfxYsfxBridge.cpp"
 )
 if(WIN32)
   set(_jsfx_has_fts FALSE)

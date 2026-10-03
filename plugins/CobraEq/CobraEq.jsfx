@@ -504,6 +504,14 @@ MF_update();
 LF_update();
  
 @block
+// UI changes (@gfx only writes the sliders) are applied here, on the audio
+// thread: @gfx runs in another thread, so it must never touch DSP state.
+(gain_db != k_gain_db) || (sat_amount != k_sat_amount) || (hpf_cut != k_hpf_cut) ||
+(mpf_cut != k_mpf_cut) || (lpf_cut != k_lpf_cut) ? (
+ gain_update(); sat_update(); hpf_update(); HF_update(); MF_update(); LF_update();
+ k_gain_db = gain_db; k_sat_amount = sat_amount; k_hpf_cut = hpf_cut;
+ k_mpf_cut = mpf_cut; k_lpf_cut = lpf_cut;
+);
 d_gain = (next_gain - last_gain)/samplesblock;
 
 @sample
@@ -619,7 +627,7 @@ input_m==1 ? (
  sat_amount>100 ? sat_amount=100;
  sat_amount<0 ? sat_amount=0;
  sliderchange(slider8);
- sat_update();
+ 
  );
  );
  ((mouse_x>175)&&(mouse_x<325)&&(protec==0))||(protec==2) ? (
@@ -633,7 +641,7 @@ input_m==1 ? (
  c_hpf_gain>16 ? c_hpf_gain=16;
  c_hpf_gain<-16 ? c_hpf_gain=-16;
  sliderchange(slider2);
- HF_update();
+ 
  );
  ); 
  ((mouse_x>325)&&(mouse_x<475)&&(protec==0))||(protec==3) ? (
@@ -646,7 +654,7 @@ input_m==1 ? (
  c_mpf_gain>18 ? c_mpf_gain=18;
  c_mpf_gain<-18 ? c_mpf_gain=-18;
  sliderchange(slider3);
- MF_update();
+ 
  );
  ); 
  ((mouse_x>475)&&(mouse_x<625)&&(protec==0))||(protec==4) ? (
@@ -659,7 +667,7 @@ input_m==1 ? (
  c_lpf_gain>16 ? c_lpf_gain=16;
  c_lpf_gain<-16 ? c_lpf_gain=-16;
  sliderchange(slider5);
- LF_update();
+ 
  );
  );     
  ((mouse_x>625)&&(mouse_x<775)&&(protec==0))||(protec==5) ? (
@@ -673,7 +681,7 @@ input_m==1 ? (
  hpf_cut<0 ? hpf_cut=0;
  sliderchange(slider7);
  // HPF Stage update
- hpf_update();
+ 
  );
  );
  (mouse_x>775)&&(mouse_y>70)&&(mouse_y<90)&&(protec==0) ? (
@@ -696,14 +704,14 @@ input_m==1 ? (
  gain_db>24 ? gain_db=24;
  gain_db<-24 ? gain_db=-24;
  sliderchange(slider1);
- gain_update(););
+ );
  (mouse_x>325)&&(mouse_x<475) ? (
  mpf_cut+=sign(mouse_wheel);
  delta_y=0;
  mpf_cut>6 ? mpf_cut=6;
  mpf_cut<0 ? mpf_cut=0;
  sliderchange(slider4);
- MF_update();
+ 
  );
  (mouse_x>475)&&(mouse_x<625) ? (
  lpf_cut+=sign(mouse_wheel);
@@ -711,7 +719,7 @@ input_m==1 ? (
  lpf_cut>4 ? lpf_cut=4;
  lpf_cut<0 ? lpf_cut=0;
  sliderchange(slider6);
- LF_update();
+ 
  );
  (mouse_x>625)&&(mouse_x<775) ? (
  hpf_cut+=sign(mouse_wheel);
@@ -719,7 +727,7 @@ input_m==1 ? (
  hpf_cut>4 ? hpf_cut=4;
  hpf_cut<0 ? hpf_cut=0;
  sliderchange(slider7);
- hpf_update();
+ 
  
  );
  mouse_wheel=0;
@@ -737,42 +745,42 @@ input_m==2? (
  mouse_y < 50 ? (
  gain_db=0;
  sliderchange(slider1);
- gain_update();
+ 
  ) : (
  sat_amount=0;
  sliderchange(slider8);
- sat_update();
+ 
  );
  );
  (mouse_x>175)&&(mouse_x<325) ? (
  c_hpf_gain=0;
  sliderchange(slider2);
- HF_update();
+ 
  );
  (mouse_x>325)&&(mouse_x<475) ? (
  mouse_y < 150 ? (
  c_mpf_gain=0;
  sliderchange(slider3);
- MF_update();
+ 
  ) : (
  mpf_cut=0;
  sliderchange(slider4);
- MF_update(););
+ );
  );
  (mouse_x>475)&&(mouse_x<625) ? (
  mouse_y < 150 ? (
  c_lpf_gain=0;
  sliderchange(slider5);
- LF_update();
+ 
  ) : (
  lpf_cut=0;
  sliderchange(slider6);
- LF_update(););
+ );
  );
  (mouse_x>625)&&(mouse_x<775) ? (
  hpf_cut=0;
  sliderchange(slider7);
- hpf_update();
+ 
  );
  );
  
