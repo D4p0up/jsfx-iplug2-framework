@@ -24,7 +24,7 @@ plugins/JsfxSynth/
 
 ## Démarrage
 
-Prérequis : CMake ≥ 3.25, Git, Visual Studio 2022 (Windows) ou Xcode (macOS).
+Prérequis : CMake ≥ 3.25, Git, Visual Studio 2022 ou 2026 (Windows) ou Xcode (macOS).
 
 ```bash
 ./scripts/setup.sh          # Windows : .\scripts\setup.ps1

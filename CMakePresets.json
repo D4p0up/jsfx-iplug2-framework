@@ -1,6 +1,10 @@
 {
   "version": 6,
-  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
   "configurePresets": [
     {
       "name": "base",
@@ -13,24 +17,36 @@
     },
     {
       "name": "windows",
-      "displayName": "Windows x64 (VS2022) - VST3",
+      "displayName": "Windows x64 (newest installed Visual Studio) - VST3",
       "inherits": "base",
-      "generator": "Visual Studio 17 2022",
-      "architecture": { "value": "x64", "strategy": "set" },
-      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
     },
     {
       "name": "windows-dev",
       "displayName": "Windows dev: Debug + JSFX hot reload",
       "inherits": "windows",
-      "cacheVariables": { "JSFX_DEV_RELOAD": "ON" }
+      "cacheVariables": {
+        "JSFX_DEV_RELOAD": "ON"
+      }
     },
     {
       "name": "macos",
       "displayName": "macOS universal (Xcode) - VST3 + AU",
       "inherits": "base",
       "generator": "Xcode",
-      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64",
         "CMAKE_OSX_DEPLOYMENT_TARGET": "10.15"
@@ -50,19 +66,62 @@
       "displayName": "Linux (engine + tests only; iPlug2 has no Linux plugin target)",
       "inherits": "base",
       "generator": "Ninja",
-      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
     }
   ],
   "buildPresets": [
-    { "name": "windows", "configurePreset": "windows", "configuration": "Release" },
-    { "name": "windows-dev", "configurePreset": "windows-dev", "configuration": "Debug" },
-    { "name": "macos", "configurePreset": "macos", "configuration": "Release" },
-    { "name": "macos-dev", "configurePreset": "macos-dev", "configuration": "Debug" },
-    { "name": "linux", "configurePreset": "linux" }
+    {
+      "name": "windows",
+      "configurePreset": "windows",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-dev",
+      "configurePreset": "windows-dev",
+      "configuration": "Debug"
+    },
+    {
+      "name": "macos",
+      "configurePreset": "macos",
+      "configuration": "Release"
+    },
+    {
+      "name": "macos-dev",
+      "configurePreset": "macos-dev",
+      "configuration": "Debug"
+    },
+    {
+      "name": "linux",
+      "configurePreset": "linux"
+    }
   ],
   "testPresets": [
-    { "name": "windows", "configurePreset": "windows", "configuration": "Release", "output": { "outputOnFailure": true } },
-    { "name": "macos", "configurePreset": "macos", "configuration": "Release", "output": { "outputOnFailure": true } },
-    { "name": "linux", "configurePreset": "linux", "output": { "outputOnFailure": true } }
+    {
+      "name": "windows",
+      "configurePreset": "windows",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "macos",
+      "configurePreset": "macos",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux",
+      "configurePreset": "linux",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
   ]
 }

@@ -13,9 +13,9 @@
 #    ----------------------------+------------------------+----------------------
 #    win32_utf8.c   (Windows)    | yes (iPlug2::IPlug)    | NO for plugins
 #                                |                        | (only standalone tools)
-#    fft.c                       | no                     | yes  (jsfx_wdl)
-#    eel2/*.c + asm object       | no                     | yes  (jsfx_wdl)
-#    lice/*.cpp                  | no (NanoVG/Skia)       | yes  (jsfx_wdl)
+#    fft.c                       | no                     | yes  (jsfx_core)
+#    eel2/*.c + asm object       | no                     | yes  (jsfx_core)
+#    lice/*.cpp                  | no (NanoVG/Skia)       | yes  (jsfx_core)
 #    swell/*  (macOS)            | no (APP format only)   | yes, per plugin target
 #                                |                        | with a unique ObjC prefix
 #    header-only (ptrlist.h...)  | shared, same version   | shared, same version
@@ -26,7 +26,8 @@
 #
 #  Inputs : IPLUG2_DIR, JSFX_YSFX_DIR
 #  Outputs: jsfx::core           static lib (ysfx + EEL2 + LICE + fft)
-#           jsfx_link_swell()    adds SWELL to a final binary (macOS / Linux)
+#           jsfx_link_runtime()  adds SWELL + EEL2 glue object + frameworks to a
+#                                final binary (plugin, tool, test)
 #           jsfx_link_win32_utf8() adds win32_utf8.c to a standalone exe (Windows)
 # =============================================================================
 
@@ -186,11 +187,11 @@ else()
 endif()
 
 # -----------------------------------------------------------------------------
-# jsfx_wdl : the WDL translation units that iPlug2 does NOT compile for plugins
+# WDL translation units that iPlug2 does NOT compile for plugins
 # -----------------------------------------------------------------------------
 set(_eel2 "${JSFX_WDL_DIR}/eel2")
 set(_lice "${JSFX_WDL_DIR}/lice")
-add_library(jsfx_wdl OBJECT
+set(_jsfx_wdl_sources
   "${JSFX_WDL_DIR}/fft.c"
   # EEL2 (compiler comes from the patched copy, see JsfxWdlPatches.cmake)
   "${JSFX_PATCHED_ROOT}/WDL/eel2/nseel-compiler.c"
@@ -218,18 +219,12 @@ add_library(jsfx_wdl OBJECT
   "${JSFX_YSFX_DIR}/sources/lice_stb/lice_stb_png.cpp"
   "${JSFX_YSFX_DIR}/sources/lice_stb/lice_stb_write.cpp"
 )
-target_link_libraries(jsfx_wdl PRIVATE jsfx_build_settings)
-target_include_directories(jsfx_wdl PRIVATE "${JSFX_YSFX_DIR}/thirdparty/stb")
-if(APPLE)
-  # nseel-compiler.c needs <libkern/OSCacheControl.h>; nothing else special
-endif()
-_jsfx_hidden(jsfx_wdl)
 
 # -----------------------------------------------------------------------------
-# jsfx_ysfx : ysfx core sources (same list as ysfx's cmake.ysfx.txt)
+# ysfx core sources (same list as ysfx's cmake.ysfx.txt)
 # -----------------------------------------------------------------------------
 set(_ys "${JSFX_YSFX_DIR}/sources")
-add_library(jsfx_ysfx OBJECT
+set(_jsfx_ysfx_sources
   "${_ys}/ysfx.cpp"
   "${_ys}/ysfx_config.cpp"
   "${_ys}/ysfx_midi.cpp"
@@ -249,51 +244,46 @@ add_library(jsfx_ysfx OBJECT
   "${_ys}/ysfx_eel_utils.cpp"
   "${_ys}/ysfx_preprocess.cpp"
 )
-target_link_libraries(jsfx_ysfx PRIVATE jsfx_build_settings Threads::Threads)
-target_include_directories(jsfx_ysfx PRIVATE
-  "${JSFX_YSFX_DIR}/include"
-  "${_ys}"
-  "${JSFX_YSFX_DIR}/thirdparty/dr_libs"
-  "${JSFX_YSFX_DIR}/thirdparty/stb"
-)
 if(WIN32)
   set(_jsfx_has_fts FALSE)
 else()
   check_c_source_compiles("#include <fts.h>\nint main(){fts_close((FTS*)0);return 0;}" JSFX_HAVE_FTS)
   set(_jsfx_has_fts ${JSFX_HAVE_FTS})
 endif()
-if(NOT _jsfx_has_fts)
-  target_compile_definitions(jsfx_ysfx PRIVATE YSFX_NO_FTS)
-endif()
-_jsfx_hidden(jsfx_ysfx)
 
 # -----------------------------------------------------------------------------
-# jsfx::core : one static library with both object sets
+# jsfx::core : one static library compiled directly from both source lists.
+# (Not from $<TARGET_OBJECTS> of object libraries: the Xcode generator
+#  produces no .a at all for a library that has no source file of its own.)
 # -----------------------------------------------------------------------------
-add_library(jsfx_core STATIC
-  $<TARGET_OBJECTS:jsfx_wdl>
-  $<TARGET_OBJECTS:jsfx_ysfx>
+add_library(jsfx_core STATIC ${_jsfx_wdl_sources} ${_jsfx_ysfx_sources})
+target_link_libraries(jsfx_core PRIVATE jsfx_build_settings)
+target_include_directories(jsfx_core PRIVATE
+  "${_ys}"
+  "${JSFX_YSFX_DIR}/thirdparty/dr_libs"
+  "${JSFX_YSFX_DIR}/thirdparty/stb"
 )
+if(NOT _jsfx_has_fts)
+  set_source_files_properties(${_jsfx_ysfx_sources} TARGET_DIRECTORY jsfx_core
+                              PROPERTIES COMPILE_DEFINITIONS YSFX_NO_FTS)
+endif()
 set_target_properties(jsfx_core PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(jsfx_core PUBLIC "${JSFX_YSFX_DIR}/include")
 target_compile_definitions(jsfx_core PUBLIC YSFX_API=)
 target_link_libraries(jsfx_core PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
-if(JSFX_EEL2_ASM_OBJECT)
-  # Linked by full path into every final binary: an object file is always
-  # pulled in whole, independent of static-library ordering.
-  if(_eel2_asm_generated)
-    add_custom_target(jsfx_eel2_asm DEPENDS "${JSFX_EEL2_ASM_OBJECT}")
-    add_dependencies(jsfx_core jsfx_eel2_asm)
-  endif()
-  target_link_libraries(jsfx_core INTERFACE "${JSFX_EEL2_ASM_OBJECT}")
+if(_eel2_asm_generated)
+  add_custom_target(jsfx_eel2_asm DEPENDS "${JSFX_EEL2_ASM_OBJECT}")
 endif()
+# NOTE: the EEL2 glue object and the Apple frameworks are deliberately NOT
+# attached to jsfx_core (nor to any static library): with the Xcode generator,
+# link items of a static library are handed to `libtool`, which rejects WDL's
+# universal (fat) object file. They are added to final binaries only, by
+# jsfx_link_runtime() below; the linker (ld64) accepts fat objects.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_options(jsfx_core INTERFACE "LINKER:-z,noexecstack")
 endif()
 if(WIN32)
   target_link_libraries(jsfx_core PUBLIC gdi32 user32 shlwapi msimg32)
-elseif(APPLE)
-  target_link_libraries(jsfx_core PUBLIC "-framework Cocoa" "-framework Carbon" "-framework Foundation" "-framework Metal")
 endif()
 _jsfx_hidden(jsfx_core)
 add_library(jsfx::core ALIAS jsfx_core)
@@ -305,7 +295,7 @@ add_library(jsfx::core ALIAS jsfx_core)
 # bundles registering the same ObjC class name crash at runtime (flat
 # ObjC namespace). iPlug2 itself only compiles SWELL for the APP format.
 # -----------------------------------------------------------------------------
-function(jsfx_link_swell target prefix)
+function(_jsfx_link_swell target prefix)
   set(_sw "${JSFX_WDL_DIR}/swell")
   if(APPLE)
     set(_mm
@@ -347,6 +337,24 @@ function(jsfx_link_swell target prefix)
     endif()
     _jsfx_hidden(${_lib})
     target_sources(${target} PRIVATE $<TARGET_OBJECTS:${_lib}>)
+  endif()
+endfunction()
+
+# -----------------------------------------------------------------------------
+# jsfx_link_runtime(<target> <objc_prefix>)
+#   Call once on every FINAL binary (plugin, tool, test) that uses jsfx::core:
+#   SWELL with a per-binary ObjC prefix, the EEL2 glue object, the frameworks.
+# -----------------------------------------------------------------------------
+function(jsfx_link_runtime target prefix)
+  _jsfx_link_swell(${target} ${prefix})
+  if(JSFX_EEL2_ASM_OBJECT)
+    target_link_libraries(${target} PRIVATE "${JSFX_EEL2_ASM_OBJECT}")
+    if(TARGET jsfx_eel2_asm)
+      add_dependencies(${target} jsfx_eel2_asm)
+    endif()
+  endif()
+  if(APPLE)
+    target_link_libraries(${target} PRIVATE "-framework Cocoa" "-framework Carbon" "-framework Foundation" "-framework Metal")
   endif()
 endfunction()
 

@@ -35,7 +35,7 @@ add_library(jsfx::engine ALIAS jsfx_engine)
 # -----------------------------------------------------------------------------
 add_executable(jsfx_meta "${CMAKE_SOURCE_DIR}/tools/jsfx_meta.cpp")
 target_link_libraries(jsfx_meta PRIVATE jsfx::core)
-jsfx_link_swell(jsfx_meta SWELL_jsfx_meta)
+jsfx_link_runtime(jsfx_meta SWELL_jsfx_meta)
 jsfx_link_win32_utf8(jsfx_meta)
 if(APPLE)
   # a host tool: build it for the build machine only, not universal
