@@ -1,0 +1,122 @@
+# Builds every plugin in plugins/ :
+#   Windows : VST3 (x64)
+#   macOS   : VST3 + AU, universal (arm64 + x86_64), validated with auval
+# Push a tag "v1.2.3" to also publish the zipped plugins as a GitHub release.
+name: Build plugins
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows VST3
+            os: windows-latest
+            preset: windows
+            out: build/windows/out
+          - name: macOS VST3 + AU
+            os: macos-latest
+            preset: macos
+            out: build/macos/out/Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true          # iPlug2 + ysfx (not ysfx's JUCE/CLAP extras)
+
+      - name: ysfx dependencies (dr_libs only)
+        shell: bash
+        run: git -C third_party/ysfx submodule update --init --depth 1 thirdparty/dr_libs
+
+      - name: Cache VST3 SDK
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: iPlug2/Dependencies/IPlug/VST3_SDK
+          key: vst3-sdk-${{ runner.os }}-${{ hashFiles('iPlug2/Dependencies/IPlug/download-vst3-sdk.sh') }}
+
+      - name: Download VST3 SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          cd iPlug2/Dependencies/IPlug
+          ./download-vst3-sdk.sh
+
+      - name: Configure
+        # deployment copies the plugins to the user plugin folders: auval needs it
+        run: cmake --preset ${{ matrix.preset }} -DIPLUG_DEPLOY_PLUGINS=ON
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
+
+      - name: Engine tests
+        run: ctest --preset ${{ matrix.preset }}
+
+      - name: Validate Audio Units (auval)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -e
+          killall -9 AudioComponentRegistrar 2>/dev/null || true   # refresh the AU cache
+          for manifest in plugins/*/plugin.json; do
+            type=$(jq -r '.type // "effect"' "$manifest")
+            midi_in=$(jq -r '.midi_in // empty' "$manifest")
+            case "$type" in
+              instrument)  au=aumu ;;
+              midi-effect) au=aumi ;;
+              *)           if [ "$midi_in" = "true" ]; then au=aumf; else au=aufx; fi ;;
+            esac
+            sub=$(jq -r '.plugin_code' "$manifest")
+            mfr=$(jq -r '.manufacturer_code' "$manifest")
+            echo "::group::auval -v $au $sub $mfr"
+            auval -strict -v "$au" "$sub" "$mfr"
+            echo "::endgroup::"
+          done
+
+      - name: Collect plugins
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp -R ${{ matrix.out }}/*.vst3 dist/
+          if [ "$RUNNER_OS" = "macOS" ]; then cp -R ${{ matrix.out }}/*.component dist/; fi
+          ls -la dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugins-${{ matrix.preset }}
+          path: dist/
+
+  release:
+    name: GitHub release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Zip
+        run: |
+          cd artifacts
+          for d in */; do (cd "$d" && zip -qry "../../${d%/}-${GITHUB_REF_NAME}.zip" .); done
+          ls -la ..
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"

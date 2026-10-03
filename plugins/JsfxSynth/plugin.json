@@ -1,0 +1,16 @@
+{
+  "name": "JsfxSynth",
+  "jsfx": "JsfxSynth.jsfx",
+  "type": "instrument",
+  "version": "1.0.0",
+  "manufacturer": "VincentAudio",
+  "manufacturer_code": "Vgui",
+  "plugin_code": "JsSy",
+  "bundle_domain": "com",
+  "midi_in": true,
+  "midi_out": false,
+  "vst3_subcategory": "Instrument|Synth",
+  "url": "https://example.com",
+  "email": "contact@example.com",
+  "copyright": "Copyright 2026 VincentAudio"
+}

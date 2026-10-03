@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>@JSFX_NAME@</string>
+	<key>CFBundleGetInfoString</key>
+	<string>@JSFX_NAME@ v@JSFX_VERSION@ @JSFX_COPYRIGHT_XML@</string>
+	<key>CFBundleIdentifier</key>
+	<string>@JSFX_BUNDLE_DOMAIN@.@JSFX_BUNDLE_MFR@.vst3.@JSFX_NAME@</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>@JSFX_NAME@</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@JSFX_VERSION@</string>
+	<key>CFBundleSignature</key>
+	<string>@JSFX_PLUGIN_CODE@</string>
+	<key>CFBundleVersion</key>
+	<string>@JSFX_VERSION@</string>
+	<key>CSResourcesFileMapped</key>
+	<true/>
+	<key>LSMinimumSystemVersion</key>
+	<string>@JSFX_MIN_MACOS@</string>
+</dict>
+</plist>

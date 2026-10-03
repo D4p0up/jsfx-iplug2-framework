@@ -1,0 +1,9 @@
+build/
+.vs/
+.vscode/
+.idea/
+*.xcworkspace/xcuserdata/
+.DS_Store
+Thumbs.db
+# downloaded by scripts/setup.* (inside the iPlug2 submodule anyway)
+iPlug2/Dependencies/IPlug/VST3_SDK/

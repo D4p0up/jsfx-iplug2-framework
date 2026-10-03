@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AudioComponents</key>
+	<array>
+		<dict>
+			<key>description</key>
+			<string>@JSFX_NAME@</string>
+			<key>factoryFunction</key>
+			<string>@JSFX_NAME@_Factory</string>
+			<key>manufacturer</key>
+			<string>@JSFX_MFR_CODE@</string>
+			<key>name</key>
+			<string>@JSFX_MFR_XML@: @JSFX_NAME@</string>
+			<key>sandboxSafe</key>
+			<true/>
+			<key>subtype</key>
+			<string>@JSFX_PLUGIN_CODE@</string>
+			<key>type</key>
+			<string>@JSFX_AU_TYPE@</string>
+			<key>version</key>
+			<integer>@JSFX_VERSION_INT@</integer>
+		</dict>
+	</array>
+	<key>AudioUnit Version</key>
+	<string>@JSFX_VERSION_HEX@</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>@JSFX_NAME@</string>
+	<key>CFBundleGetInfoString</key>
+	<string>@JSFX_NAME@ v@JSFX_VERSION@ @JSFX_COPYRIGHT_XML@</string>
+	<key>CFBundleIdentifier</key>
+	<string>@JSFX_BUNDLE_DOMAIN@.@JSFX_BUNDLE_MFR@.audiounit.@JSFX_NAME@</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>@JSFX_NAME@</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@JSFX_VERSION@</string>
+	<key>CFBundleSignature</key>
+	<string>@JSFX_PLUGIN_CODE@</string>
+	<key>CFBundleVersion</key>
+	<string>@JSFX_VERSION@</string>
+	<key>CSResourcesFileMapped</key>
+	<true/>
+	<key>LSMinimumSystemVersion</key>
+	<string>@JSFX_MIN_MACOS@</string>
+	<key>NSPrincipalClass</key>
+	<string>@JSFX_NAME@_View</string>
+</dict>
+</plist>
