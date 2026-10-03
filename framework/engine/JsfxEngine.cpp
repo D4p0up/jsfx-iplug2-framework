@@ -94,7 +94,9 @@ struct Engine::ExclusiveLock
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     e.mExclusiveWaiters.fetch_sub(1);
+    e.mFxWaiters.fetch_add(1);          // audio thread skips blocks meanwhile
     fx = std::unique_lock<std::mutex>(e.mFxMutex);
+    e.mFxWaiters.fetch_sub(1);
   }
   Engine& engine;
   std::unique_lock<std::mutex> gfx, fx;
@@ -492,7 +494,12 @@ void Engine::PushMidi(uint32_t offset, const uint8_t* data, uint32_t size)
 template <typename T>
 bool Engine::ProcessT(const T* const* ins, T* const* outs, uint32_t nIns, uint32_t nOuts, uint32_t nFrames, MidiOutFunc midiOut, void* user)
 {
-  std::unique_lock<std::mutex> lock(mFxMutex, std::try_to_lock);
+  // Never wait. Also yield to a main-thread operation that is waiting for the
+  // lock: hosts can call us back to back (offline bounce), and an unfair mutex
+  // (macOS) would otherwise let this thread re-take it forever.
+  std::unique_lock<std::mutex> lock(mFxMutex, std::defer_lock);
+  if (mFxWaiters.load() == 0)
+    lock.try_lock();
   if (!lock.owns_lock() || !mFx)
   {
     for (uint32_t c = 0; c < nOuts; ++c)

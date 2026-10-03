@@ -7,7 +7,8 @@
 //  Threads and locks
 //  -----------------
 //   audio thread  : Process()          try-locks mFxMutex (never blocks; a block
-//                                      is rendered silent if the lock is busy)
+//                                      is rendered silent if the lock is busy or
+//                                      a main-thread operation is waiting for it)
 //   gfx thread    : JsfxGfxRunner      locks mGfxMutex while running @gfx.
 //                                      @gfx runs concurrently with @sample,
 //                                      exactly like in REAPER.
@@ -163,6 +164,7 @@ private:
   LogFunc mLogFunc;
 
   std::atomic<int> mExclusiveWaiters{0};   // main-thread ops waiting for the gfx lock
+  std::atomic<int> mFxWaiters{0};          // main-thread ops waiting for the fx lock
   std::mutex mInterruptMutex;
   std::function<void()> mGfxInterruptor;
 

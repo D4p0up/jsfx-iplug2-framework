@@ -79,15 +79,25 @@ int main(int argc, char** argv)
     }
   });
 
+  std::atomic<int> hostStep{0};          // which call the host thread is in
+  std::atomic<double> slowestOpMs{0.0};
   std::thread host([&] {
     while (!stop)
     {
       if (mask & 2)
       {
+        const auto t = std::chrono::steady_clock::now();
+        hostStep = 1;
         const auto blob = engine.SaveState();
+        hostStep = 2;
         engine.LoadState(blob.data(), blob.size());
+        hostStep = 3;
         if (stateOps % 10 == 0) engine.Reload();
+        hostStep = 4;
         if (stateOps % 15 == 0) engine.Prepare(stateOps % 30 ? 44100.0 : 48000.0, 128);
+        hostStep = 0;
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t).count();
+        if (ms > slowestOpMs.load()) slowestOpMs.store(ms);
       }
       ++stateOps;
       std::this_thread::sleep_for(std::chrono::milliseconds(3));
@@ -107,17 +117,24 @@ int main(int argc, char** argv)
   stop = true;
   if (stalled)
   {
-    std::fprintf(stderr, "DEAD-LOCK: blocks=%ld frames=%ld stateOps=%ld\n", blocks.load(), frames.load(), stateOps.load());
+    static const char* const kSteps[] = {"idle", "SaveState", "LoadState", "Reload", "Prepare"};
+    std::fprintf(stderr, "DEAD-LOCK: blocks=%ld%s frames=%ld%s stateOps=%ld%s (host thread in %s), gfx busy=%d\n",
+                 blocks.load(), blocks == lastB ? " [STALLED]" : "",
+                 frames.load(), frames == lastF ? " [STALLED]" : "",
+                 stateOps.load(), stateOps == lastS ? " [STALLED]" : "",
+                 kSteps[hostStep.load()], gfx.IsBusy() ? 1 : 0);
     std::_Exit(1);
   }
   audio.join(); ui.join(); host.join();
 
-  std::printf("blocks %ld (rendered %ld), gfx frames %ld, state ops %ld, peak %.3f\n",
-              blocks.load(), rendered.load(), frames.load(), stateOps.load(), peak.load());
-  // Blocks that arrive while a state operation holds the engine are rendered
-  // silent by design (the audio thread never waits). How many depends on the
-  // machine's core count, so only require that most of the time audio plays.
-  const bool ok = rendered > blocks / 10 && peak > 0.01 && peak < 4.0 && frames > 20 && stateOps > 5;
+  std::printf("blocks %ld (rendered %ld), gfx frames %ld, state ops %ld (slowest %.1f ms), peak %.3f\n",
+              blocks.load(), rendered.load(), frames.load(), stateOps.load(), slowestOpMs.load(), peak.load());
+  // Blocks that arrive while a state operation holds (or waits for) the engine
+  // are rendered silent by design: the audio thread never waits. This loop runs
+  // unpaced, far faster than real time, so the silent/rendered ratio means
+  // nothing; require real audio, real state ops, and bounded state-op latency.
+  const bool ok = rendered > 1000 && peak > 0.01 && peak < 4.0 && frames > 20 && stateOps > 5 &&
+                  slowestOpMs.load() < 750.0;
   std::printf(ok ? "stress OK\n" : "stress FAILED\n");
   return ok ? 0 : 1;
 }
